@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.haui</groupId>
+    <artifactId>tech-ecommerce-parent</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>tech-ecommerce-parent</name>
+    <description>Monorepo Parent for Tech Ecommerce Microservices (HaUI TX2)</description>
+
+    <modules>
+        <module>catalog-service</module>
+        <module>auth-service</module>
+        <module>order-service</module>
+        <module>api-gateway</module>
+        <module>notification-service</module>
+    </modules>
+</project>
