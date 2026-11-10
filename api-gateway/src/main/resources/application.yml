@@ -1,0 +1,62 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+      routes:
+        # Route 1: Auth Service (Đăng ký, Đăng nhập, Xác thực Token) - Public
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/auth/**
+
+        # Route 2: Catalog Service (Tra cứu danh mục linh kiện & SSE Stream) - Public
+        - id: catalog-service
+          uri: ${CATALOG_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/products/**
+
+        # Route 3: Order Service (Tạo và quản lý đơn hàng) - Yêu cầu xác thực JWT qua Filter
+        - id: order-service
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - name: AuthenticationFilter
+
+        # Route 4: Notification Service (Kiểm tra trạng thái thông báo)
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/notifications/**
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    com.haui.gateway: DEBUG

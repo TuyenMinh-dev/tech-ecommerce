@@ -1,0 +1,199 @@
+services:
+  # ============================================================================
+  # 1. HẠ TẦNG CƠ SỞ DỮ LIỆU & MESSAGE BROKER
+  # ============================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - micro-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  mongo:
+    image: mongo:7.0
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - micro-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - micro-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  # ============================================================================
+  # 2. CÁC MICROSERVICES NGHIỆP VỤ
+  # ============================================================================
+
+  catalog-service:
+    build:
+      context: ./catalog-service
+    container_name: catalog-service
+    ports:
+      - "8081:8081"
+    environment:
+      MONGO_HOST: mongo
+      MONGO_PORT: 27017
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - micro-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: auth-service
+    ports:
+      - "8082:8082"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - micro-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  order-service:
+    build:
+      context: ./order-service
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      CATALOG_HOST: catalog-service
+      CATALOG_PORT: 8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+    networks:
+      - micro-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  notification-service:
+    build:
+      context: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8084:8084"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - micro-net
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8082
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      ORDER_SERVICE_URL: http://order-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+    depends_on:
+      auth-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    networks:
+      - micro-net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+networks:
+  micro-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
+  rabbitmq_data:

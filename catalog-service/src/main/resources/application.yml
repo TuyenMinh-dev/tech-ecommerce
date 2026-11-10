@@ -1,0 +1,24 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: catalog-service
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_HOST:localhost}:${MONGO_PORT:27017}/catalog_db
+      auto-index-creation: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.haui.catalog: DEBUG
+    org.springframework.data.mongodb.core.ReactiveMongoTemplate: DEBUG
